@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, Response, render_template
 from PyPDF2 import PdfMerger
 from io import BytesIO
+from urllib.parse import quote
 
 app = Flask(__name__)
 
@@ -67,8 +68,11 @@ def merge():
         # 병합 후 파일 목록 초기화
         file_mapping.clear()
 
+        # 한글 파일 이름 처리
+        encoded_output_name = quote(output_name)
+
         response = Response(merged_pdf.read(), mimetype="application/pdf")
-        response.headers["Content-Disposition"] = f"attachment; filename={output_name}"
+        response.headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_output_name}"
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         return response
 
