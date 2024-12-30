@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF 병합 도구</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10">
+    <h1 class="text-2xl font-bold text-green-600 mb-5">PDF 병합 도구</h1>
+
+    <div class="bg-white shadow-lg rounded-lg p-5 w-full max-w-xl">
+        <div class="mb-4">
+            <label for="file-input" class="block font-medium text-gray-700">PDF 파일 업로드:</label>
+            <input id="file-input" type="file" multiple accept=".pdf"
+                class="block w-full mt-2 px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
+
+        <ul id="file-list" class="border border-gray-300 rounded-md divide-y divide-gray-200 mb-4"></ul>
+
+        <div class="flex items-center gap-2 mb-4">
+            <input id="output-name" type="text" placeholder="저장할 파일 이름 (예: merged)"
+                class="flex-grow px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="mergePDFs()"
+                class="bg-green-500 text-white font-medium py-2 px-4 rounded hover:bg-green-600">병합</button>
+            <button onclick="clearFiles()"
+                class="bg-red-500 text-white font-medium py-2 px-4 rounded hover:bg-red-600">초기화</button>
+        </div>
+
+        <div>
+          <p class="text-gray-300">등록한 pdf는 서버에 저장되지 않고, 즉시 병합됩니다.</p>
+        </div>
+    </div>
+
+    <script>
+        let fileOrder = [];
+
+        function uploadFiles(event) {
+            const input = event.target;
+            const formData = new FormData();
+
+            for (const file of input.files) {
+                formData.append("files", file);
+            }
+
+            fetch("/upload", { method: "POST", body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    fileOrder = [...fileOrder, ...data.uploaded_files];
+                    updateFileList();
+                });
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById("file-list");
+            fileList.innerHTML = "";
+
+            fileOrder.forEach((file, index) => {
+                const listItem = document.createElement("li");
+                listItem.className = "flex justify-between items-center py-2 px-3";
+                listItem.innerHTML = `
+                    <span class="text-gray-700">${file.original}</span>
+                    <div class="flex gap-2">
+                        <button class="bg-blue-500 text-white text-sm py-1 px-3 rounded hover:bg-blue-600"
+                            onclick="moveUp(${index})">위로</button>
+                        <button class="bg-blue-500 text-white text-sm py-1 px-3 rounded hover:bg-blue-600"
+                            onclick="moveDown(${index})">아래로</button>
+                        <button class="bg-red-500 text-white text-sm py-1 px-3 rounded hover:bg-red-600"
+                            onclick="deleteFile('${file.original}', ${index})">삭제</button>
+                    </div>
+                `;
+                fileList.appendChild(listItem);
+            });
+        }
+
+        function deleteFile(filename, index) {
+            fetch("/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename })
+            })
+                .then(response => response.json())
+                .then(() => {
+                    fileOrder.splice(index, 1);
+                    updateFileList();
+                });
+        }
+
+        function moveUp(index) {
+            if (index > 0) {
+                [fileOrder[index], fileOrder[index - 1]] = [fileOrder[index - 1], fileOrder[index]];
+                updateFileList();
+            }
+        }
+
+        function moveDown(index) {
+            if (index < fileOrder.length - 1) {
+                [fileOrder[index], fileOrder[index + 1]] = [fileOrder[index + 1], fileOrder[index]];
+                updateFileList();
+            }
+        }
+
+        function mergePDFs() {
+            let outputName = document.getElementById("output-name").value.trim();
+
+            // Ensure the file name ends with .pdf
+            if (!outputName.toLowerCase().endsWith(".pdf")) {
+                outputName += ".pdf";
+            }
+
+            // 병합에 필요한 무작위 파일 이름만 추출
+            const randomFileOrder = fileOrder.map(file => file.original);
+
+            fetch("/merge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ file_order: randomFileOrder, output_name: outputName })
+            })
+                .then(response => {
+                    if (response.ok) return response.blob();
+                    return response.json().then(data => { throw new Error(data.error); });
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = outputName;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+
+                    // 병합 후 페이지 새로고침
+                    window.location.reload();
+                })
+                .catch(err => alert(err.message));
+        }
+
+        function clearFiles() {
+            fetch("/clear", { method: "POST" })
+                .then(response => response.json())
+                .then(() => {
+                    fileOrder = [];
+                    updateFileList();
+                });
+        }
+
+        document.getElementById("file-input").addEventListener("change", uploadFiles);
+    </script>
+</body>
+</html>
