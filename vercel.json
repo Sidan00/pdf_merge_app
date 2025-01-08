@@ -5,5 +5,14 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "app.py" }
-  ]
+  ],
+  "functions": {
+    "api/upload": {
+      "maxDuration": 10,
+      "memory": 128
+    }
+  },
+  "limits": {
+    "maxUploadFileSize": 10
+  }
 }
