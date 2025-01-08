@@ -31,7 +31,7 @@
         </div>
 
         <div>
-          <p class="text-gray-300">등록한 pdf는 서버에 저장되지 않고, 즉시 병합됩니다.</p>
+            <p class="text-gray-300">등록한 PDF는 서버에 저장되지 않고, 즉시 병합됩니다.</p>
         </div>
     </div>
 
@@ -61,6 +61,10 @@
                 } else {
                     alert("파일 업로드 중 오류가 발생했습니다.");
                 }
+            };
+
+            xhr.onerror = function () {
+                alert("네트워크 오류가 발생했습니다.");
             };
 
             xhr.send(formData);
